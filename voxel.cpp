@@ -4,6 +4,8 @@
 
 #define STRLEN(x) (sizeof(x) / sizeof(x[0]))
 
+const float uv_epsilon = 0.001;
+
 Voxel::Voxel() :
 		_library(0),
 		_id(-1),
@@ -11,7 +13,10 @@ Voxel::Voxel() :
 		_is_transparent(false),
 		_color(1.f, 1.f, 1.f),
 		_geometry_type(GEOMETRY_NONE),
-		_cube_geometry_padding_y(0) {}
+		_cube_geometry_padding_y(0), 
+		_plant_height(1.0),
+		_plant_tile(0.0, 0.0)
+		{}
 
 static Cube::Side name_to_side(const String &s) {
 	if (s == "left")
@@ -49,6 +54,14 @@ bool Voxel::_set(const StringName &p_name, const Variant &p_value) {
 		_cube_geometry_padding_y = p_value;
 		set_cube_geometry(_cube_geometry_padding_y);
 		return true;
+	} else if (name == "plant_height") {
+		_plant_height = p_value;
+		set_plant_geometry();
+		return true;
+	} else if (name == "plant_tile") {
+		_plant_tile = p_value;
+		set_plant_geometry();
+		return true;
 	}
 
 	return false;
@@ -71,6 +84,12 @@ bool Voxel::_get(const StringName &p_name, Variant &r_ret) const {
 
 		r_ret = _cube_geometry_padding_y;
 		return true;
+	} else if (name == "plant_height") {
+		r_ret = _plant_height;
+		return true;
+	} else if (name == "plant_tile") {
+		r_ret = _plant_tile;
+		return true;
 	}
 
 	return false;
@@ -88,6 +107,11 @@ void Voxel::_get_property_list(List<PropertyInfo> *p_list) const {
 		p_list->push_back(PropertyInfo(Variant::VECTOR2, "cube_tiles/top"));
 		p_list->push_back(PropertyInfo(Variant::VECTOR2, "cube_tiles/back"));
 		p_list->push_back(PropertyInfo(Variant::VECTOR2, "cube_tiles/front"));
+	}
+
+	if (_geometry_type == GEOMETRY_PLANT) {
+		p_list->push_back(PropertyInfo(Variant::REAL, "plant_height"));
+		p_list->push_back(PropertyInfo(Variant::REAL, "plant_tile"));
 	}
 }
 
@@ -146,6 +170,10 @@ void Voxel::set_geometry_type(GeometryType type) {
 			update_cube_uv_sides();
 			break;
 
+		case GEOMETRY_PLANT:
+			set_plant_geometry();
+			break;
+
 		default:
 			print_line("Wtf? Unknown geometry type");
 			break;
@@ -161,8 +189,8 @@ void Voxel::set_library(Ref<VoxelLibrary> lib) {
 		_library = 0;
 	else
 		_library = lib->get_instance_id();
-	// Update model UVs because atlas size is defined by the library
-	update_cube_uv_sides();
+	
+	set_geometry_type(_geometry_type); // update everything
 }
 
 VoxelLibrary *Voxel::get_library() const {
@@ -173,6 +201,63 @@ VoxelLibrary *Voxel::get_library() const {
 		return Object::cast_to<VoxelLibrary>(v);
 	return NULL;
 }
+
+
+Ref<Voxel> Voxel::set_plant_geometry() {
+	for (int side = 0; side < Cube::SIDE_COUNT; ++side) {
+		_model_side_positions[side].resize(0);
+		_model_side_uvs[side].resize(0);
+		_model_side_indices[side].resize(0);
+	}
+
+	const Vector2 uv[4] = {
+		Vector2(uv_epsilon, 1.f - uv_epsilon),
+		Vector2(1.f - uv_epsilon, 1.f - uv_epsilon),
+		Vector2(uv_epsilon, uv_epsilon),
+		Vector2(1.f - uv_epsilon, uv_epsilon),
+	};
+
+	// creates a cross out of the cube positions
+	_model_positions.resize(8);
+	_model_normals.resize(8);
+	_model_uvs.resize(8);
+	_model_indices.resize(12);
+
+	PoolVector3Array::Write pos = _model_positions.write();
+	PoolVector3Array::Write nrm = _model_normals.write();
+	PoolVector2Array::Write uvs = _model_uvs.write();
+	for (int i = 0; i < 8; i++) {
+		pos[i] = Cube::g_corner_position[i];
+		pos[i].y *= _plant_height;
+		nrm[i] = Vector3(0.0, 1.0, 0.0); // up for now to be more consistent in brightness with ground
+		uvs[i] = (_plant_tile + uv[i/2]); // default uv's will be set via atlas size later
+	}
+
+	PoolIntArray::Write indices = _model_indices.write();
+
+	for (int i = 0; i < 2; i++) {
+		indices[i*6+0] = 0+i; indices[i*6+1] = 4+i; indices[i*6+2] = 2+i;
+		indices[i*6+3] = 2+i; indices[i*6+4] = 4+i; indices[i*6+5] = 6+i;
+	}
+
+	VoxelLibrary *library = get_library();
+	if (library == NULL) {
+		print_line("set_plant_geometry(): VoxelLibrary not set yet");
+	} else { // now we can update the uv's
+		float atlas_size = (float)library->get_atlas_size();
+		CRASH_COND(atlas_size <= 0);
+		float s = 1.0 / atlas_size;
+
+		for (int i = 0; i < 8; i++) {
+			uvs[i] = (_plant_tile + uv[i/2]);
+			uvs[i].y *= _plant_height; // account for lower height
+			uvs[i] *= s;
+		}
+	}
+
+	return Ref<Voxel>(this);
+}
+
 
 Ref<Voxel> Voxel::set_cube_geometry(float sy) {
 	sy = 1.0 + sy;
@@ -218,15 +303,14 @@ void Voxel::update_cube_uv_sides() {
 		return;
 	}
 
-	float e = 0.001;
 	// Winding is the same as the one chosen in Cube:: vertices
 	// I am confused. I read in at least 3 OpenGL tutorials that texture coordinates start at bottom-left (0,0).
 	// But even though Godot is said to follow OpenGL's convention, the engine starts at top-left!
 	const Vector2 uv[4] = {
-		Vector2(e, 1.f - e),
-		Vector2(1.f - e, 1.f - e),
-		Vector2(1.f - e, e),
-		Vector2(e, e),
+		Vector2(uv_epsilon, 1.f - uv_epsilon),
+		Vector2(1.f - uv_epsilon, 1.f - uv_epsilon),
+		Vector2(1.f - uv_epsilon, uv_epsilon),
+		Vector2(uv_epsilon, uv_epsilon),
 	};
 
 	float atlas_size = (float)library->get_atlas_size();
@@ -271,10 +355,11 @@ void Voxel::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "color"), "set_color", "get_color");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "transparent"), "set_transparent", "is_transparent");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "material_id"), "set_material_id", "get_material_id");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "geometry_type", PROPERTY_HINT_ENUM, "None,Cube"), "set_geometry_type", "get_geometry_type");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "geometry_type", PROPERTY_HINT_ENUM, "None,Cube,Plant"), "set_geometry_type", "get_geometry_type");
 
 	BIND_ENUM_CONSTANT(GEOMETRY_NONE);
 	BIND_ENUM_CONSTANT(GEOMETRY_CUBE);
+	BIND_ENUM_CONSTANT(GEOMETRY_PLANT);
 	BIND_ENUM_CONSTANT(GEOMETRY_MAX);
 
 	BIND_ENUM_CONSTANT(CHANNEL_TYPE)

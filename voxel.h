@@ -49,6 +49,7 @@ public:
 	enum GeometryType {
 		GEOMETRY_NONE = 0,
 		GEOMETRY_CUBE = 1,
+		GEOMETRY_PLANT = 2,
 		GEOMETRY_MAX
 	};
 
@@ -81,6 +82,7 @@ protected:
 	static void _bind_methods();
 
 	Ref<Voxel> set_cube_geometry(float sy = 1);
+	Ref<Voxel> set_plant_geometry();
 	//Ref<Voxel> set_xquad_geometry(Vector2 atlas_pos);
 
 private:
@@ -97,6 +99,9 @@ private:
 	GeometryType _geometry_type;
 	float _cube_geometry_padding_y;
 	Vector2 _cube_tiles[Cube::SIDE_COUNT];
+
+	float _plant_height;
+	Vector2 _plant_tile;
 
 	// Model
 	PoolVector<Vector3> _model_positions;
