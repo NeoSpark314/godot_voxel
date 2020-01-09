@@ -24,9 +24,10 @@ for f in files:
 if ARGUMENTS.get('voxel_shared', 'no') == 'yes':
     # Shared lib compilation
     env_voxel.Append(CCFLAGS=['-fPIC'])
-    env_voxel['LIBS'] = []
+    # env_voxel['LIBS'] = []
     shared_lib = env_voxel.SharedLibrary(target='#bin/voxel', source=sources)
-    shared_lib_shim = shared_lib[0].name.rsplit('.', 1)[0]
+    #shared_lib_shim = shared_lib[0].name.rsplit('.', 1)[0]
+    shared_lib_shim = shared_lib[0].name.split('.', 1)[0]
     env.Append(LIBS=[shared_lib_shim])
     env.Append(LIBPATH=['#bin'])
 else:

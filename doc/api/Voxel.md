@@ -11,56 +11,61 @@ _Godot version: 3.2_
 
 ## Constants:
 
-#### » GeometryType.GEOMETRY_NONE = 0
+#### ï¿½ GeometryType.GEOMETRY_NONE = 0
 
 
-#### » GeometryType.GEOMETRY_CUBE = 1
+#### ï¿½ GeometryType.GEOMETRY_CUBE = 1
 
 
-#### » GeometryType.GEOMETRY_MAX = 2
+#### ï¿½ GeometryType.GEOMETRY_PLANT = 2
 
 
-#### » ChannelMode.CHANNEL_TYPE = 0
+#### ï¿½ GeometryType.GEOMETRY_USER = 3
+
+#### ï¿½ GeometryType.GEOMETRY_MAX = 4
 
 
-#### » ChannelMode.CHANNEL_ISOLEVEL = 1
+#### ï¿½ ChannelMode.CHANNEL_TYPE = 0
 
 
-#### » ChannelMode.CHANNEL_DATA = 2
+#### ï¿½ ChannelMode.CHANNEL_ISOLEVEL = 1
+
+
+#### ï¿½ ChannelMode.CHANNEL_DATA = 2
 
 
 
 ## Properties:
 
-#### » Color color
+#### ï¿½ Color color
 
 `set_color (value)` setter
 
 `get_color ()` getter
 
 
-#### » int Voxel.GeometryType.geometry_type
+#### ï¿½ int Voxel.GeometryType.geometry_type
 
 `set_geometry_type (value)` setter
 
 `get_geometry_type ()` getter
 
 
-#### » int material_id
+#### ï¿½ int material_id
 
 `set_material_id (value)` setter
 
 `get_material_id ()` getter
 
 
-#### » bool transparent
+#### ï¿½ bool transparent
 
 `set_transparent (value)` setter
 
 `is_transparent ()` getter
 
 
-#### » String voxel_name
+#### ï¿½ String voxel_name
 
 `set_voxel_name (value)` setter
 
@@ -70,22 +75,22 @@ _Godot version: 3.2_
 
 ## Methods:
 
-#### » int get_id (  )  const
+#### ï¿½ int get_id (  )  const
 
 
-#### » Voxel set_color ( Color color ) 
+#### ï¿½ Voxel set_color ( Color color ) 
 
 
-#### » Voxel set_id ( int id ) 
+#### ï¿½ Voxel set_id ( int id ) 
 
 
-#### » Voxel set_material_id ( int id ) 
+#### ï¿½ Voxel set_material_id ( int id ) 
 
 
-#### » Voxel set_transparent ( bool transparent=true ) 
+#### ï¿½ Voxel set_transparent ( bool transparent=true ) 
 
 
-#### » Voxel set_voxel_name ( String name ) 
+#### ï¿½ Voxel set_voxel_name ( String name ) 
 
 
 
