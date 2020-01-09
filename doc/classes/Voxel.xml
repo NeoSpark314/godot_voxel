@@ -73,7 +73,9 @@
 		</constant>
 		<constant name="GEOMETRY_PLANT" value="2" enum="GeometryType">
 		</constant>
-		<constant name="GEOMETRY_MAX" value="3" enum="GeometryType">
+		<constant name="GEOMETRY_USER" value="3" enum="GeometryType">
+		</constant>
+		<constant name="GEOMETRY_MAX" value="4" enum="GeometryType">
 		</constant>
 		<constant name="CHANNEL_TYPE" value="0" enum="ChannelMode">
 		</constant>

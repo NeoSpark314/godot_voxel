@@ -2,6 +2,8 @@
 #include "meshers/blocky/voxel_mesher_blocky.h" // TODO Only required because of MAX_MATERIALS... could be enough inverting that dependency
 #include "voxel_library.h"
 
+#include <scene/resources/mesh_data_tool.h>
+
 #define STRLEN(x) (sizeof(x) / sizeof(x[0]))
 
 const float uv_epsilon = 0.001;
@@ -62,6 +64,14 @@ bool Voxel::_set(const StringName &p_name, const Variant &p_value) {
 		_plant_tile = p_value;
 		set_plant_geometry();
 		return true;
+	} else if (name == "mesh") {
+		_user_geometry_mesh = p_value;
+		set_user_geometry();
+		return true;
+	} else if (name == "mesh_tile") {
+		_user_geometry_tile = p_value;
+		set_user_geometry();
+		return true;
 	}
 
 	return false;
@@ -90,6 +100,12 @@ bool Voxel::_get(const StringName &p_name, Variant &r_ret) const {
 	} else if (name == "plant_tile") {
 		r_ret = _plant_tile;
 		return true;
+	} else if (name == "mesh") {
+		r_ret = _user_geometry_mesh;
+		return true;
+	} else if (name == "mesh_tile") {
+		r_ret = _user_geometry_tile;
+		return true;
 	}
 
 	return false;
@@ -111,7 +127,12 @@ void Voxel::_get_property_list(List<PropertyInfo> *p_list) const {
 
 	if (_geometry_type == GEOMETRY_PLANT) {
 		p_list->push_back(PropertyInfo(Variant::REAL, "plant_height"));
-		p_list->push_back(PropertyInfo(Variant::REAL, "plant_tile"));
+		p_list->push_back(PropertyInfo(Variant::VECTOR2, "plant_tile"));
+	}
+
+	if (_geometry_type == GEOMETRY_USER) {
+		p_list->push_back(PropertyInfo(Variant::OBJECT, "mesh", PROPERTY_HINT_RESOURCE_TYPE, "Mesh"));
+		p_list->push_back(PropertyInfo(Variant::VECTOR2, "mesh_tile"));
 	}
 }
 
@@ -172,6 +193,10 @@ void Voxel::set_geometry_type(GeometryType type) {
 
 		case GEOMETRY_PLANT:
 			set_plant_geometry();
+			break;
+
+		case GEOMETRY_USER:
+			set_user_geometry();
 			break;
 
 		default:
@@ -253,6 +278,69 @@ Ref<Voxel> Voxel::set_plant_geometry() {
 			uvs[i].y *= _plant_height; // account for lower height
 			uvs[i] *= s;
 		}
+	}
+
+	return Ref<Voxel>(this);
+}
+
+Ref<Voxel> Voxel::set_user_geometry() {
+	for (int side = 0; side < Cube::SIDE_COUNT; ++side) {
+		_model_side_positions[side].resize(0);
+		_model_side_uvs[side].resize(0);
+		_model_side_indices[side].resize(0);
+	}
+
+	Ref<ArrayMesh> am = _user_geometry_mesh;
+
+	if (am.is_null()) {
+		if (_user_geometry_mesh.is_null()) print_line("No Mesh set for user geometry voxel type");
+		else print_line("Mesh is not of type ArrayMesh for user geometry voxel type");
+		_model_positions.resize(0);
+		_model_normals.resize(0);
+		_model_uvs.resize(0);
+		_model_indices.resize(0);
+		return Ref<Voxel>(this);
+	}
+
+
+	VoxelLibrary *library = get_library();
+	float _tex_scale = 1.0;
+	if (library == NULL) {
+		print_line("set_user_geometry(): VoxelLibrary not set yet; ignoring atlas size");
+	} else { // now we can update the uv's
+		float atlas_size = (float)library->get_atlas_size();
+		CRASH_COND(atlas_size <= 0);
+		_tex_scale = 1.0 / atlas_size;
+	}
+
+
+
+	MeshDataTool mdt;
+	Error err = mdt.create_from_surface(am, 0);
+	// there is probably a way faster method to do this:
+	int num_v = mdt.get_vertex_count();
+	int num_f = mdt.get_face_count();
+	_model_positions.resize(num_v);
+	_model_normals.resize(num_v);
+	_model_uvs.resize(num_v);
+
+	fprintf(stderr, "num_v = %d' num_f = %d; error = %d", num_v, num_f, err);
+
+	PoolVector3Array::Write pos = _model_positions.write();
+	PoolVector3Array::Write nrm = _model_normals.write();
+	PoolVector2Array::Write uvs = _model_uvs.write();
+
+	for (int i = 0; i < num_v; i++) {
+		pos[i] = mdt.get_vertex(i);
+		nrm[i] = mdt.get_vertex_normal(i);
+		uvs[i] = (mdt.get_vertex_uv(i) + _user_geometry_tile) * _tex_scale;
+	}
+
+	_model_indices.resize(num_f*3);
+	PoolIntArray::Write indices = _model_indices.write();
+	for (int i = 0; i < num_f; i++) {
+		for (int j = 0; j < 3; j++)
+			indices[i*3+j] = mdt.get_face_vertex(i, j);
 	}
 
 	return Ref<Voxel>(this);
@@ -355,11 +443,12 @@ void Voxel::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "color"), "set_color", "get_color");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "transparent"), "set_transparent", "is_transparent");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "material_id"), "set_material_id", "get_material_id");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "geometry_type", PROPERTY_HINT_ENUM, "None,Cube,Plant"), "set_geometry_type", "get_geometry_type");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "geometry_type", PROPERTY_HINT_ENUM, "None,Cube,Plant,User"), "set_geometry_type", "get_geometry_type");
 
 	BIND_ENUM_CONSTANT(GEOMETRY_NONE);
 	BIND_ENUM_CONSTANT(GEOMETRY_CUBE);
 	BIND_ENUM_CONSTANT(GEOMETRY_PLANT);
+	BIND_ENUM_CONSTANT(GEOMETRY_USER);
 	BIND_ENUM_CONSTANT(GEOMETRY_MAX);
 
 	BIND_ENUM_CONSTANT(CHANNEL_TYPE)

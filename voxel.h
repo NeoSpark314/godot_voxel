@@ -5,6 +5,7 @@
 #include <core/resource.h>
 
 class VoxelLibrary;
+class Mesh;
 
 // TODO Rename VoxelType?
 // Definition of one type of voxel.
@@ -50,6 +51,7 @@ public:
 		GEOMETRY_NONE = 0,
 		GEOMETRY_CUBE = 1,
 		GEOMETRY_PLANT = 2,
+		GEOMETRY_USER = 3,
 		GEOMETRY_MAX
 	};
 
@@ -83,6 +85,8 @@ protected:
 
 	Ref<Voxel> set_cube_geometry(float sy = 1);
 	Ref<Voxel> set_plant_geometry();
+
+	Ref<Voxel> set_user_geometry();
 	//Ref<Voxel> set_xquad_geometry(Vector2 atlas_pos);
 
 private:
@@ -102,6 +106,9 @@ private:
 
 	float _plant_height;
 	Vector2 _plant_tile;
+
+	Ref<Mesh> _user_geometry_mesh;
+	Vector2 _user_geometry_tile;
 
 	// Model
 	PoolVector<Vector3> _model_positions;
