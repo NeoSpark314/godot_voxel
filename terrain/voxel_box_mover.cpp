@@ -1,5 +1,7 @@
 #include "voxel_box_mover.h"
 #include "voxel_map.h"
+#include "../voxel_library.h"
+
 
 static AABB expand_with_vector(AABB box, Vector3 v) {
 
@@ -122,6 +124,11 @@ Vector3 VoxelBoxMover::get_motion(Vector3 pos, Vector3 motion, AABB aabb, VoxelT
 	ERR_FAIL_COND_V(voxels_ref.is_null(), Vector3());
 	VoxelMap &voxels = **voxels_ref;
 
+	Ref<VoxelLibrary> lib_ref = terrain->get_voxel_library();
+	if (lib_ref.is_null()) return  ::get_motion(box, motion, potential_boxes); // not sure if this is a good idea;
+	const VoxelLibrary &lib = **lib_ref;
+
+
 	int min_x = int(Math::floor(expanded_box.position.x));
 	int min_y = int(Math::floor(expanded_box.position.y));
 	int min_z = int(Math::floor(expanded_box.position.z));
@@ -139,6 +146,9 @@ Vector3 VoxelBoxMover::get_motion(Vector3 pos, Vector3 motion, AABB aabb, VoxelT
 
 				int voxel_type = voxels.get_voxel(i, 0);
 				if (voxel_type != 0) {
+					// check if it is a transparent voxel and ignore it if transparent
+					if (lib.get_voxel_const(voxel_type).is_transparent()) continue;
+					
 					AABB voxel_box = AABB(i.to_vec3(), Vector3(1, 1, 1));
 					potential_boxes.push_back(voxel_box);
 				}
